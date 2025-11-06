@@ -21,10 +21,79 @@
             Registra estimaciones, fechas y responsables para mantener el control.
           </p>
         </div>
-        <button id="toggleView" class="button button--secondary" type="button">
-          Ver como tablero
-        </button>
+        <div class="app__actions">
+          <button id="toggleView" class="button button--secondary" type="button">
+            Ver como tablero
+          </button>
+          <div class="toolbar" role="group" aria-label="Herramientas de datos">
+            <input
+              id="importFile"
+              class="toolbar__file-input"
+              type="file"
+              accept="application/json"
+            />
+            <button id="importButton" class="button button--ghost" type="button">
+              Importar JSON
+            </button>
+            <button id="exportButton" class="button button--ghost" type="button">
+              Exportar JSON
+            </button>
+          </div>
+        </div>
       </header>
+
+      <section class="card card--inline" aria-label="Filtros de proyectos">
+        <form id="filtersForm" class="filters" autocomplete="off">
+          <label class="filters__field">
+            <span>Búsqueda</span>
+            <input
+              id="filterSearch"
+              name="filterSearch"
+              type="search"
+              placeholder="Nombre, responsable o desarrollador"
+            />
+          </label>
+          <label class="filters__field">
+            <span>Área</span>
+            <select id="filterArea" name="filterArea">
+              <option value="">Todas</option>
+              <option value="Comercial">Comercial</option>
+              <option value="Contabilidad">Contabilidad</option>
+              <option value="Finanzas">Finanzas</option>
+              <option value="IT">IT</option>
+              <option value="Logística">Logística</option>
+              <option value="Postventa">Postventa</option>
+              <option value="Todas">Todas</option>
+              <option value="CCHH">CCHH</option>
+            </select>
+          </label>
+          <label class="filters__field">
+            <span>Prioridad</span>
+            <select id="filterPriority" name="filterPriority">
+              <option value="">Todas</option>
+              <option value="alta">Alta</option>
+              <option value="media">Media</option>
+              <option value="baja">Baja</option>
+              <option value="a-definir">A definir</option>
+            </select>
+          </label>
+          <label class="filters__field">
+            <span>Estado</span>
+            <select id="filterStatus" name="filterStatus">
+              <option value="">Todos</option>
+              <option value="en-analisis">En análisis</option>
+              <option value="en-desarrollo">En desarrollo</option>
+              <option value="terminado">Terminado</option>
+            </select>
+          </label>
+          <div class="filters__actions">
+            <button id="clearFilters" class="button button--ghost" type="button">
+              Limpiar filtros
+            </button>
+          </div>
+        </form>
+        <p id="filtersSummary" class="filters__summary" role="status" aria-live="polite"></p>
+      </section>
 
       <section class="card" aria-labelledby="form-title">
         <div class="card__header">
@@ -52,12 +121,24 @@
               />
             </label>
             <label class="form__field">
-              <span>Responsable *</span>
+              <span>Área *</span>
+              <select id="area" name="area" required>
+                <option value="Comercial">Comercial</option>
+                <option value="Contabilidad">Contabilidad</option>
+                <option value="Finanzas">Finanzas</option>
+                <option value="IT">IT</option>
+                <option value="Logística">Logística</option>
+                <option value="Postventa">Postventa</option>
+                <option value="Todas">Todas</option>
+                <option value="CCHH">CCHH</option>
+              </select>
+            </label>
+            <label class="form__field">
+              <span>Responsable</span>
               <input
                 id="owner"
                 name="owner"
                 type="text"
-                required
                 placeholder="Ej. Ana López"
               />
             </label>
@@ -82,6 +163,17 @@
               />
             </label>
             <label class="form__field">
+              <span>Puntos</span>
+              <input
+                id="points"
+                name="points"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="Ej. 3"
+              />
+            </label>
+            <label class="form__field">
               <span>Fecha de inicio</span>
               <input id="startDate" name="startDate" type="date" />
             </label>
@@ -95,20 +187,19 @@
                 <option value="alta">Alta</option>
                 <option value="media" selected>Media</option>
                 <option value="baja">Baja</option>
+                <option value="a-definir">A definir</option>
               </select>
             </label>
             <label class="form__field">
               <span>Estado</span>
               <select id="status" name="status">
-                <option value="backlog">Ideas / Backlog</option>
-                <option value="planificado">Planificado</option>
-                <option value="en-progreso" selected>En progreso</option>
-                <option value="revision">En revisión</option>
-                <option value="completado">Completado</option>
+                <option value="en-analisis">En análisis</option>
+                <option value="en-desarrollo">En desarrollo</option>
+                <option value="terminado">Terminado</option>
               </select>
             </label>
             <label class="form__field form__field--full">
-              <span>Descripción</span>
+              <span>Observaciones</span>
               <textarea
                 id="description"
                 name="description"
@@ -134,13 +225,16 @@
             <thead>
               <tr>
                 <th>Proyecto</th>
+                <th>Área</th>
                 <th>Responsable</th>
                 <th>Desarrolladores</th>
                 <th>Estimación</th>
+                <th>Puntos</th>
                 <th>Inicio</th>
                 <th>Fin</th>
                 <th>Prioridad</th>
                 <th>Estado</th>
+                <th>Observaciones</th>
                 <th></th>
               </tr>
             </thead>
