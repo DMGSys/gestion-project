@@ -398,6 +398,8 @@ function fillProjectCard(card, project) {
     card.classList.remove("is-dragging");
   });
 
+  card.addEventListener("dblclick", () => editProject(project.id));
+
   const moveLeft = card.querySelector(".project__move-left");
   const moveRight = card.querySelector(".project__move-right");
   const editButton = card.querySelector(".project__edit");
@@ -582,7 +584,7 @@ function renderList() {
       <td>${project.startDate ? formatDate(project.startDate) : "-"}</td>
       <td>${project.endDate ? formatDate(project.endDate) : "-"}</td>
       <td class="table-priority table-priority--${project.priority}">${capitalize(project.priority)}</td>
-      <td>${findStatusLabel(project.status)}</td>
+      <td data-role="status"></td>
       <td class="table__observations">${project.description || "-"}</td>
       <td>
         <div class="project__actions">
@@ -597,6 +599,31 @@ function renderList() {
     `;
 
     listBody.appendChild(row);
+
+    const statusCell = row.querySelector("[data-role='status']");
+    if (statusCell) {
+      const statusSelect = document.createElement("select");
+      statusSelect.className = "table__status-select";
+      statusSelect.setAttribute(
+        "aria-label",
+        `Actualizar estado del proyecto ${project.name}`
+      );
+
+      statuses.forEach((status) => {
+        const option = document.createElement("option");
+        option.value = status.key;
+        option.textContent = status.label;
+        statusSelect.appendChild(option);
+      });
+
+      statusSelect.value = project.status;
+      statusSelect.addEventListener("change", (event) => {
+        const value = event.target.value;
+        updateProjectStatus(project.id, value);
+      });
+
+      statusCell.appendChild(statusSelect);
+    }
   });
 
   listBody.querySelectorAll("[data-action='edit']").forEach((button) => {

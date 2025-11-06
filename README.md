@@ -16,9 +16,15 @@ Aplicación web ligera para registrar y dar seguimiento a iniciativas de desarro
 2. La aplicación cargará automáticamente el catálogo inicial desde `data/projects.json`, que contiene los proyectos de referencia suministrados.
 3. Completa el formulario para crear un nuevo proyecto y pulsa **Guardar proyecto**.
 4. Cambia entre vista de **lista** y **tablero** con el botón en la parte superior.
-5. Arrastra las tarjetas entre columnas o utiliza los controles para actualizar el estado.
+5. Arrastra las tarjetas entre columnas, utiliza las flechas o el selector de la vista de lista para actualizar el estado.
 6. Usa los botones **Importar JSON** y **Exportar JSON** para cargar tus propios datos o generar un respaldo actualizado.
 7. Ajusta los filtros para localizar proyectos específicos. El resumen inferior indica cuántos registros coinciden y distribuye los puntos por estado.
+
+### Edición de proyectos precargados
+
+- Los proyectos que llegan desde `data/projects.json` aparecen con botón **Editar** en la tabla y en cada tarjeta.
+- También puedes hacer doble clic sobre una tarjeta en el tablero para abrirla directamente en el formulario.
+- Al guardar los cambios se actualizan tanto la vista de lista como el tablero y el estado se sincroniza con el selector correspondiente.
 
 > Nota: toda la información se almacena en `localStorage`. Cuando necesites compartirla o moverla a otro equipo, genera un archivo desde **Exportar JSON** y cárgalo nuevamente con **Importar JSON**.
 
