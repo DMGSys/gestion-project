@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión de Proyectos</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <header class="app__header">
+        <div>
+          <h1>Seguimiento de Proyectos</h1>
+          <p class="app__subtitle">
+            Registra estimaciones, fechas y responsables para mantener el control.
+          </p>
+        </div>
+        <div class="app__actions">
+          <button id="toggleView" class="button button--secondary" type="button">
+            Ver como tablero
+          </button>
+          <div class="toolbar" role="group" aria-label="Herramientas de datos">
+            <input
+              id="importFile"
+              class="toolbar__file-input"
+              type="file"
+              accept="application/json"
+            />
+            <button id="importButton" class="button button--ghost" type="button">
+              Importar JSON
+            </button>
+            <button id="exportButton" class="button button--ghost" type="button">
+              Exportar JSON
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section class="card" aria-labelledby="form-title">
+        <div class="card__header">
+          <div>
+            <h2 id="form-title">Nuevo proyecto</h2>
+            <p class="card__subtitle">
+              Completa la información para añadir un proyecto a tu tablero.
+            </p>
+          </div>
+          <button id="cancelEdit" class="button button--ghost" type="button">
+            Cancelar edición
+          </button>
+        </div>
+        <form id="projectForm" class="form">
+          <input type="hidden" id="projectId" name="projectId" />
+          <div class="form__grid">
+            <label class="form__field">
+              <span>Nombre del proyecto *</span>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                required
+                placeholder="Ej. Rediseño del portal"
+              />
+            </label>
+            <label class="form__field">
+              <span>Área *</span>
+              <select id="area" name="area" required>
+                <option value="Comercial">Comercial</option>
+                <option value="Contabilidad">Contabilidad</option>
+                <option value="Finanzas">Finanzas</option>
+                <option value="IT">IT</option>
+                <option value="Logística">Logística</option>
+                <option value="Postventa">Postventa</option>
+                <option value="Todas">Todas</option>
+                <option value="CCHH">CCHH</option>
+              </select>
+            </label>
+            <label class="form__field">
+              <span>Responsable</span>
+              <input
+                id="owner"
+                name="owner"
+                type="text"
+                placeholder="Ej. Ana López"
+              />
+            </label>
+            <label class="form__field">
+              <span>Desarrolladores</span>
+              <input
+                id="developers"
+                name="developers"
+                type="text"
+                placeholder="Separados por coma"
+              />
+            </label>
+            <label class="form__field">
+              <span>Estimación (horas)</span>
+              <input
+                id="estimate"
+                name="estimate"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="Ej. 120"
+              />
+            </label>
+            <label class="form__field">
+              <span>Puntos</span>
+              <input
+                id="points"
+                name="points"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="Ej. 3"
+              />
+            </label>
+            <label class="form__field">
+              <span>Fecha de inicio</span>
+              <input id="startDate" name="startDate" type="date" />
+            </label>
+            <label class="form__field">
+              <span>Fecha de fin</span>
+              <input id="endDate" name="endDate" type="date" />
+            </label>
+            <label class="form__field">
+              <span>Prioridad</span>
+              <select id="priority" name="priority">
+                <option value="alta">Alta</option>
+                <option value="media" selected>Media</option>
+                <option value="baja">Baja</option>
+                <option value="a-definir">A definir</option>
+              </select>
+            </label>
+            <label class="form__field">
+              <span>Estado</span>
+              <select id="status" name="status">
+                <option value="en-analisis">En análisis</option>
+                <option value="en-desarrollo">En desarrollo</option>
+                <option value="terminado">Terminado</option>
+              </select>
+            </label>
+            <label class="form__field form__field--full">
+              <span>Observaciones</span>
+              <textarea
+                id="description"
+                name="description"
+                rows="3"
+                placeholder="Agrega contexto adicional o notas relevantes"
+              ></textarea>
+            </label>
+          </div>
+          <div class="form__actions">
+            <button class="button" type="submit">Guardar proyecto</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="board" id="board" aria-live="polite"></section>
+
+      <section class="list" id="listView" aria-live="polite">
+        <div class="list__header">
+          <h2>Proyectos</h2>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Proyecto</th>
+                <th>Área</th>
+                <th>Responsable</th>
+                <th>Desarrolladores</th>
+                <th>Estimación</th>
+                <th>Puntos</th>
+                <th>Inicio</th>
+                <th>Fin</th>
+                <th>Prioridad</th>
+                <th>Estado</th>
+                <th>Observaciones</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="listBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <template id="projectCardTemplate">
+      <article class="project" draggable="true">
+        <header class="project__header">
+          <h3 class="project__title"></h3>
+          <span class="project__priority"></span>
+        </header>
+        <dl class="project__meta"></dl>
+        <p class="project__description"></p>
+        <footer class="project__footer">
+          <div class="project__people"></div>
+          <div class="project__actions">
+            <button class="button button--ghost project__move-left" type="button">
+              ◀
+            </button>
+            <button class="button button--ghost project__move-right" type="button">
+              ▶
+            </button>
+            <button class="button button--ghost project__edit" type="button">
+              Editar
+            </button>
+            <button class="button button--ghost project__delete" type="button">
+              Eliminar
+            </button>
+          </div>
+        </footer>
+      </article>
+    </template>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
