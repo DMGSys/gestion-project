@@ -1,0 +1,60 @@
+# Archivos del sistema operativo
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Archivos de editores e IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Archivos temporales
+*.tmp
+*.temp
+*.log
+*.cache
+
+# Archivos de respaldo
+*.bak
+*.backup
+*~
+
+# Node modules (si en el futuro se agregan dependencias)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Archivos de build (si se agrega un proceso de build)
+dist/
+build/
+*.min.js
+*.min.css
+
+# Variables de entorno
+.env
+.env.local
+.env.*.local
+
+# Archivos de datos de desarrollo (opcional - descomentar si no quieres versionar datos de prueba)
+# data/projects.json
+# data/*.json
+
+# Archivos de configuración local
+config.local.js
+settings.local.json
+

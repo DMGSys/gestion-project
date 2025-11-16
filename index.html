@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gestión de Proyectos</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="css/styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -42,7 +42,20 @@
         </div>
       </header>
 
-      <section class="card card--inline" aria-label="Filtros de proyectos">
+      <!-- Sistema de Pestañas -->
+      <div class="tabs">
+        <div class="tabs__header" role="tablist">
+          <button class="tabs__tab tabs__tab--active" data-tab="projects" role="tab" aria-selected="true" aria-controls="projects-panel">
+            Proyectos
+          </button>
+          <button class="tabs__tab" data-tab="admin" role="tab" aria-selected="false" aria-controls="admin-panel">
+            Administración
+          </button>
+        </div>
+
+        <!-- Pestaña de Proyectos -->
+        <div id="projects-panel" class="tabs__panel tabs__panel--active" role="tabpanel" aria-labelledby="projects-tab">
+          <section class="card card--inline" aria-label="Filtros de proyectos">
         <form id="filtersForm" class="filters" autocomplete="off">
           <label class="filters__field">
             <span>Búsqueda</span>
@@ -57,14 +70,6 @@
             <span>Área</span>
             <select id="filterArea" name="filterArea">
               <option value="">Todas</option>
-              <option value="Comercial">Comercial</option>
-              <option value="Contabilidad">Contabilidad</option>
-              <option value="Finanzas">Finanzas</option>
-              <option value="IT">IT</option>
-              <option value="Logística">Logística</option>
-              <option value="Postventa">Postventa</option>
-              <option value="Todas">Todas</option>
-              <option value="CCHH">CCHH</option>
             </select>
           </label>
           <label class="filters__field">
@@ -123,33 +128,31 @@
             <label class="form__field">
               <span>Área *</span>
               <select id="area" name="area" required>
-                <option value="Comercial">Comercial</option>
-                <option value="Contabilidad">Contabilidad</option>
-                <option value="Finanzas">Finanzas</option>
-                <option value="IT">IT</option>
-                <option value="Logística">Logística</option>
-                <option value="Postventa">Postventa</option>
-                <option value="Todas">Todas</option>
-                <option value="CCHH">CCHH</option>
               </select>
             </label>
             <label class="form__field">
               <span>Responsable</span>
-              <input
-                id="owner"
-                name="owner"
-                type="text"
-                placeholder="Ej. Ana López"
-              />
+              <select id="owner" name="owner">
+                <option value="">Sin asignar</option>
+              </select>
             </label>
             <label class="form__field">
               <span>Desarrolladores</span>
-              <input
+              <select
                 id="developers"
                 name="developers"
-                type="text"
-                placeholder="Separados por coma"
-              />
+                multiple
+                size="4"
+                style="min-height: 80px;"
+              >
+                <option value="Diego Gatica">Diego Gatica</option>
+                <option value="Alan Basualdo">Alan Basualdo</option>
+                <option value="Vicente D'alesandro">Vicente D'alesandro</option>
+                <option value="Gaspar Diaz">Gaspar Diaz</option>
+              </select>
+              <small>
+                Mantén presionada la tecla <kbd>Ctrl</kbd> (o <kbd>Cmd</kbd> en Mac) para seleccionar múltiples desarrolladores
+              </small>
             </label>
             <label class="form__field">
               <span>Estimación (horas)</span>
@@ -242,6 +245,72 @@
           </table>
         </div>
       </section>
+        </div>
+
+        <!-- Pestaña de Administración -->
+        <div id="admin-panel" class="tabs__panel" role="tabpanel" aria-labelledby="admin-tab">
+          <section class="card" aria-label="Administración de responsables y desarrolladores">
+            <div class="card__header">
+              <div>
+                <h2>Administración de Personas y Áreas</h2>
+                <p class="card__subtitle">
+                  Gestiona la lista de áreas, responsables y desarrolladores del sistema.
+                </p>
+              </div>
+            </div>
+            
+            <div class="people-admin">
+              <div class="people-admin__section">
+                <h3 class="people-admin__title">Áreas</h3>
+                <form id="areaForm" class="people-admin__form">
+                  <div class="people-admin__input-group">
+                    <input
+                      id="newArea"
+                      type="text"
+                      placeholder="Nombre del área"
+                      required
+                    />
+                    <button class="button" type="submit">Agregar</button>
+                  </div>
+                </form>
+                <ul id="areasList" class="people-admin__list"></ul>
+              </div>
+
+              <div class="people-admin__section">
+                <h3 class="people-admin__title">Responsables</h3>
+                <form id="ownerForm" class="people-admin__form">
+                  <div class="people-admin__input-group">
+                    <input
+                      id="newOwner"
+                      type="text"
+                      placeholder="Nombre del responsable"
+                      required
+                    />
+                    <button class="button" type="submit">Agregar</button>
+                  </div>
+                </form>
+                <ul id="ownersList" class="people-admin__list"></ul>
+              </div>
+
+              <div class="people-admin__section">
+                <h3 class="people-admin__title">Desarrolladores</h3>
+                <form id="developerForm" class="people-admin__form">
+                  <div class="people-admin__input-group">
+                    <input
+                      id="newDeveloper"
+                      type="text"
+                      placeholder="Nombre del desarrollador"
+                      required
+                    />
+                    <button class="button" type="submit">Agregar</button>
+                  </div>
+                </form>
+                <ul id="developersList" class="people-admin__list"></ul>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
 
     <template id="projectCardTemplate">
@@ -255,6 +324,9 @@
         <footer class="project__footer">
           <div class="project__people"></div>
           <div class="project__actions">
+            <button class="button button--ghost project__view-detail" type="button">
+              Ver detalle
+            </button>
             <button class="button button--ghost project__move-left" type="button">
               ◀
             </button>
@@ -272,6 +344,100 @@
       </article>
     </template>
 
-    <script src="app.js" type="module"></script>
+    <!-- Modal de detalle del proyecto -->
+    <div id="modalOverlay" class="modal-overlay"></div>
+    <div id="projectDetailModal" class="modal">
+      <div class="modal__header">
+        <h2 class="modal__title">Detalle del Proyecto</h2>
+        <button id="modalClose" class="button button--ghost modal__close" type="button" aria-label="Cerrar">
+          ✕
+        </button>
+      </div>
+      <div class="modal__body">
+        <div class="modal__project-info">
+          <h3 id="modalProjectName" class="modal__project-name"></h3>
+          <div class="modal__project-meta">
+            <div class="modal__meta-item">
+              <span class="modal__meta-label">Área:</span>
+              <span id="modalProjectArea" class="modal__meta-value"></span>
+            </div>
+            <div class="modal__meta-item">
+              <span class="modal__meta-label">Responsable:</span>
+              <span id="modalProjectOwner" class="modal__meta-value"></span>
+            </div>
+          </div>
+          <p id="modalProjectDescription" class="modal__project-description"></p>
+        </div>
+
+        <div class="modal__tasks-section">
+          <div class="modal__tasks-header">
+            <h3 class="modal__section-title">Tareas del Proyecto</h3>
+            <div id="modalTasksSummary" class="tasks-summary"></div>
+          </div>
+
+          <form id="taskForm" class="task-form">
+            <div class="task-form__header">
+              <h4 id="taskFormTitle" class="task-form__title">Nueva tarea</h4>
+              <button id="cancelTaskEdit" class="button button--ghost" type="button" style="display: none;">
+                Cancelar edición
+              </button>
+            </div>
+            <div class="task-form__grid">
+              <label class="form__field">
+                <span>Título de la tarea *</span>
+                <input
+                  id="taskTitle"
+                  name="taskTitle"
+                  type="text"
+                  required
+                  placeholder="Ej. Configurar servidor MCP"
+                />
+              </label>
+              <label class="form__field">
+                <span>Asignado a</span>
+                <select id="taskAssignedTo" name="taskAssignedTo">
+                  <option value="">Sin asignar</option>
+                </select>
+              </label>
+              <label class="form__field">
+                <span>Tiempo estimado (horas)</span>
+                <input
+                  id="taskEstimatedTime"
+                  name="taskEstimatedTime"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  placeholder="Ej. 6"
+                />
+              </label>
+              <label class="form__field">
+                <span>Estado</span>
+                <select id="taskStatus" name="taskStatus">
+                  <option value="pendiente">Pendiente</option>
+                  <option value="en-progreso">En progreso</option>
+                  <option value="hecha">Hecha</option>
+                </select>
+              </label>
+              <label class="form__field form__field--full">
+                <span>Descripción</span>
+                <textarea
+                  id="taskDescription"
+                  name="taskDescription"
+                  rows="2"
+                  placeholder="Detalle breve de lo que se debe realizar"
+                ></textarea>
+              </label>
+            </div>
+            <div class="form__actions">
+              <button class="button" type="submit">Guardar tarea</button>
+            </div>
+          </form>
+
+          <div id="taskList" class="task-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/app.js" type="module"></script>
   </body>
 </html>
