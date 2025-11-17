@@ -1,11 +1,10 @@
 // Módulo de gestión de proyectos
 import { saveProjects } from "./storage.js";
+import { getStatuses as getStatusesFromPeople } from "./people.js";
 
-export const statuses = [
-  { key: "en-analisis", label: "En análisis" },
-  { key: "en-desarrollo", label: "En desarrollo" },
-  { key: "terminado", label: "Terminado" },
-];
+export function getStatusesList() {
+  return getStatusesFromPeople();
+}
 
 export function formatDevelopers(value) {
   if (!value) return [];
@@ -85,12 +84,14 @@ export function moveProject(projects, projectId, direction) {
   const index = projects.findIndex((project) => project.id === projectId);
   if (index === -1) return projects;
 
-  const statusIndex = statuses.findIndex((status) => status.key === projects[index].status);
-  const newIndex = statusIndex + direction;
+  const currentStatuses = getStatusesList();
+  const statusIndex = currentStatuses.findIndex((status) => status.key === projects[index].status);
+  if (statusIndex === -1) return projects;
 
-  if (newIndex < 0 || newIndex >= statuses.length) return projects;
+  const newIndex = direction === "left" ? statusIndex - 1 : statusIndex + 1;
+  if (newIndex < 0 || newIndex >= currentStatuses.length) return projects;
 
-  projects[index].status = statuses[newIndex].key;
+  projects[index].status = currentStatuses[newIndex].key;
   saveProjects(projects);
   return projects;
 }
@@ -164,7 +165,8 @@ export function formatDate(dateString) {
 }
 
 export function findStatusLabel(statusKey) {
-  return statuses.find((status) => status.key === statusKey)?.label ?? statusKey;
+  const currentStatuses = getStatusesList();
+  return currentStatuses.find((status) => status.key === statusKey)?.label ?? statusKey;
 }
 
 function sanitizeDate(value) {

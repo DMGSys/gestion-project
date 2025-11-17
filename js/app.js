@@ -1,7 +1,7 @@
 // Aplicación principal - Gestión de Proyectos
 import { loadProjects, saveProjects, getLastUpdate, getMetadata } from "./storage.js";
 import {
-  statuses,
+  getStatusesList,
   createProject,
   updateProjectStatus,
   moveProject,
@@ -26,6 +26,7 @@ import {
   updateFiltersSummary,
   synchronizeAreaOptions,
 } from "./render.js";
+import { renderDashboard } from "./dashboard.js";
 import {
   loadPeople,
   addDeveloper,
@@ -41,6 +42,10 @@ import {
   getOwners,
   getAreas,
   getAllPeople,
+  getStatuses,
+  addStatus,
+  removeStatus,
+  updateStatus,
 } from "./people.js";
 
 // Referencias DOM
@@ -53,6 +58,7 @@ const timelineDateFrom = document.getElementById("timelineDateFrom");
 const timelineDateTo = document.getElementById("timelineDateTo");
 const timelineFilterApply = document.getElementById("timelineFilterApply");
 const timelineFilterReset = document.getElementById("timelineFilterReset");
+const dashboardContainer = document.getElementById("dashboardContainer");
 const toggleViewButton = document.getElementById("toggleView");
 const toggleTimelineButton = document.getElementById("toggleTimeline");
 const toggleThemeButton = document.getElementById("toggleTheme");
@@ -60,6 +66,8 @@ const themeIcon = document.getElementById("themeIcon");
 const projectForm = document.getElementById("projectForm");
 const formAreaSelect = document.getElementById("area");
 const cancelEditButton = document.getElementById("cancelEdit");
+const toggleProjectFormButton = document.getElementById("toggleProjectForm");
+const toggleProjectFormIcon = document.getElementById("toggleProjectFormIcon");
 const importButton = document.getElementById("importButton");
 const exportButton = document.getElementById("exportButton");
 const importFileInput = document.getElementById("importFile");
@@ -86,11 +94,14 @@ const cancelTaskEditButton = document.getElementById("cancelTaskEdit");
 const ownerForm = document.getElementById("ownerForm");
 const developerForm = document.getElementById("developerForm");
 const areaForm = document.getElementById("areaForm");
+const statusForm = document.getElementById("statusForm");
 const ownersList = document.getElementById("ownersList");
 const developersList = document.getElementById("developersList");
 const areasList = document.getElementById("areasList");
+const statusesList = document.getElementById("statusesList");
 const ownerSelect = document.getElementById("owner");
 const developersSelect = document.getElementById("developers");
+const statusSelect = document.getElementById("status");
 const taskAssignedToSelect = document.getElementById("taskAssignedTo");
 
 let projects = [];
@@ -136,6 +147,9 @@ async function initialize() {
   if (timelineContainer) {
     renderTimeline(timelineContainer, timelineDateFilters);
   }
+  if (dashboardContainer) {
+    renderDashboard(dashboardContainer, projects);
+  }
   updateFiltersSummary(filtersSummary);
   updateView();
   updateLastUpdateInfo();
@@ -145,6 +159,13 @@ async function initialize() {
 
   projectForm.addEventListener("submit", handleSubmit);
   toggleViewButton.addEventListener("click", handleToggleView);
+  
+  // Inicializar colapso del formulario de proyecto
+  initializeProjectFormCollapse();
+  
+  if (toggleProjectFormButton) {
+    toggleProjectFormButton.addEventListener("click", handleToggleProjectForm);
+  }
   if (toggleTimelineButton) {
     toggleTimelineButton.addEventListener("click", handleToggleTimeline);
   }
@@ -229,7 +250,16 @@ function initializeTabs() {
       // Activar la pestaña seleccionada
       button.classList.add("tabs__tab--active");
       button.setAttribute("aria-selected", "true");
-      document.getElementById(`${targetTab}-panel`).classList.add("tabs__panel--active");
+      
+      const targetPanel = document.getElementById(`${targetTab}-panel`);
+      if (targetPanel) {
+        targetPanel.classList.add("tabs__panel--active");
+        
+        // Si se activa el dashboard, renderizarlo
+        if (targetTab === "dashboard" && dashboardContainer) {
+          renderDashboard(dashboardContainer, projects);
+        }
+      }
     });
   });
 }
@@ -271,6 +301,22 @@ function initializePeopleAdmin() {
       const name = input.value.trim();
       if (name && addDeveloper(name)) {
         input.value = "";
+        renderPeopleLists();
+        updateAllSelects();
+      }
+    });
+  }
+  
+  if (statusForm) {
+    statusForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const keyInput = document.getElementById("newStatusKey");
+      const labelInput = document.getElementById("newStatusLabel");
+      const key = keyInput.value.trim();
+      const label = labelInput.value.trim();
+      if (key && label && addStatus(key, label)) {
+        keyInput.value = "";
+        labelInput.value = "";
         renderPeopleLists();
         updateAllSelects();
       }
@@ -572,9 +618,127 @@ function renderPeopleLists() {
       });
     });
   }
+  
+  // Renderizar estados
+  if (statusesList) {
+    const statuses = getStatuses();
+    statusesList.innerHTML = statuses.map(status => `
+      <li class="people-admin__item" data-item-key="${status.key}">
+        <span class="people-admin__item-name">
+          <strong>${status.label}</strong> <span style="color: var(--color-text-muted); font-size: 0.9em;">(${status.key})</span>
+        </span>
+        <div style="display: none;">
+          <input class="people-admin__item-input" type="text" value="${status.key}" placeholder="Clave" style="margin-bottom: 4px;" />
+          <input class="people-admin__item-input" type="text" value="${status.label}" placeholder="Etiqueta" />
+        </div>
+        <div class="people-admin__item-actions">
+          <button class="button button--ghost button--small" data-action="edit-status" data-key="${status.key}" type="button">
+            Editar
+          </button>
+          <button class="button button--ghost button--small" data-action="remove-status" data-key="${status.key}" type="button">
+            Eliminar
+          </button>
+        </div>
+      </li>
+    `).join("");
+    
+    statusesList.querySelectorAll("[data-action='edit-status']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const item = btn.closest(".people-admin__item");
+        const nameSpan = item.querySelector(".people-admin__item-name");
+        const inputsContainer = item.querySelector("div[style*='display: none']");
+        const inputs = inputsContainer.querySelectorAll("input");
+        const keyInput = inputs[0];
+        const labelInput = inputs[1];
+        const actions = item.querySelector(".people-admin__item-actions");
+        const oldKey = btn.dataset.key;
+        const oldStatus = statuses.find(s => s.key === oldKey);
+        
+        nameSpan.style.display = "none";
+        inputsContainer.style.display = "block";
+        keyInput.focus();
+        keyInput.select();
+        
+        const saveBtn = document.createElement("button");
+        saveBtn.className = "button button--small";
+        saveBtn.textContent = "Guardar";
+        saveBtn.type = "button";
+        
+        const cancelBtn = document.createElement("button");
+        cancelBtn.className = "button button--ghost button--small";
+        cancelBtn.textContent = "Cancelar";
+        cancelBtn.type = "button";
+        
+        const tempActions = document.createElement("div");
+        tempActions.className = "people-admin__item-actions";
+        tempActions.appendChild(saveBtn);
+        tempActions.appendChild(cancelBtn);
+        actions.style.display = "none";
+        item.appendChild(tempActions);
+        
+        const finishEdit = () => {
+          nameSpan.style.display = "";
+          inputsContainer.style.display = "none";
+          actions.style.display = "";
+          tempActions.remove();
+        };
+        
+        saveBtn.addEventListener("click", () => {
+          const newKey = keyInput.value.trim().toLowerCase().replace(/\s+/g, "-");
+          const newLabel = labelInput.value.trim();
+          if (newKey && newLabel && (newKey !== oldKey || newLabel !== oldStatus.label)) {
+            if (updateStatus(oldKey, newKey, newLabel)) {
+              updateProjectsAfterRename("status", oldKey, newKey);
+              renderPeopleLists();
+              updateAllSelects();
+              refreshViews();
+              showSaveStatus();
+            } else {
+              alert("La clave ya existe o los valores no son válidos.");
+            }
+          } else {
+            finishEdit();
+          }
+        });
+        
+        cancelBtn.addEventListener("click", () => {
+          keyInput.value = oldKey;
+          labelInput.value = oldStatus.label;
+          finishEdit();
+        });
+        
+        keyInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            labelInput.focus();
+          } else if (e.key === "Escape") {
+            cancelBtn.click();
+          }
+        });
+        
+        labelInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            saveBtn.click();
+          } else if (e.key === "Escape") {
+            cancelBtn.click();
+          }
+        });
+      });
+    });
+    
+    statusesList.querySelectorAll("[data-action='remove-status']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const status = statuses.find(s => s.key === btn.dataset.key);
+        if (confirm(`¿Eliminar el estado "${status.label}"?`)) {
+          removeStatus(btn.dataset.key);
+          renderPeopleLists();
+          updateAllSelects();
+        }
+      });
+    });
+  }
 }
 
-// Función para actualizar proyectos cuando se renombra un área, responsable o desarrollador
+// Función para actualizar proyectos cuando se renombra un área, responsable, desarrollador o estado
 function updateProjectsAfterRename(type, oldName, newName) {
   let updated = false;
   
@@ -586,6 +750,11 @@ function updateProjectsAfterRename(type, oldName, newName) {
     
     if (type === "owner" && project.owner === oldName) {
       project.owner = newName;
+      updated = true;
+    }
+    
+    if (type === "status" && project.status === oldName) {
+      project.status = newName;
       updated = true;
     }
     
@@ -678,6 +847,60 @@ function updateAllSelects() {
     });
   }
   
+  // Actualizar select de estados en formulario de proyecto
+  if (statusSelect) {
+    const currentValue = statusSelect.value;
+    statusSelect.innerHTML = "";
+    const statuses = getStatuses();
+    
+    // Obtener estados que tienen al menos un proyecto asignado
+    const statusesWithProjects = statuses.filter(status => {
+      return projects.some(project => project.status === status.key);
+    });
+    
+    // Si hay un valor actual seleccionado que no está en los estados con proyectos,
+    // agregarlo para preservarlo (útil al editar)
+    if (currentValue && !statusesWithProjects.some(s => s.key === currentValue)) {
+      const currentStatus = statuses.find(s => s.key === currentValue);
+      if (currentStatus) {
+        statusesWithProjects.push(currentStatus);
+      }
+    }
+    
+    // Si no hay estados con proyectos, mostrar todos los estados disponibles
+    const statusesToShow = statusesWithProjects.length > 0 ? statusesWithProjects : statuses;
+    
+    statusesToShow.forEach(status => {
+      const option = document.createElement("option");
+      option.value = status.key;
+      option.textContent = status.label;
+      statusSelect.appendChild(option);
+    });
+    
+    // Restaurar el valor seleccionado si existe, o usar el primer estado como predeterminado
+    if (statusesToShow.some(s => s.key === currentValue)) {
+      statusSelect.value = currentValue;
+    } else if (statusesToShow.length > 0) {
+      statusSelect.value = statusesToShow[0].key;
+    }
+  }
+  
+  // Actualizar select de estados en filtros
+  if (filterStatusSelect) {
+    const currentValue = filterStatusSelect.value;
+    filterStatusSelect.innerHTML = '<option value="">Todos</option>';
+    const statuses = getStatuses();
+    statuses.forEach(status => {
+      const option = document.createElement("option");
+      option.value = status.key;
+      option.textContent = status.label;
+      filterStatusSelect.appendChild(option);
+    });
+    if (statuses.some(s => s.key === currentValue)) {
+      filterStatusSelect.value = currentValue;
+    }
+  }
+  
   // Actualizar select de "Asignado a" en tareas (responsables + desarrolladores)
   if (taskAssignedToSelect) {
     // Guardar valores seleccionados actuales (puede ser múltiple)
@@ -755,6 +978,9 @@ function refreshViews() {
   renderList(listBody);
   if (timelineContainer && currentView === "timeline") {
     renderTimeline(timelineContainer, timelineDateFilters);
+  }
+  if (dashboardContainer) {
+    renderDashboard(dashboardContainer, projects);
   }
   updateFiltersSummary(filtersSummary);
 }
@@ -900,7 +1126,22 @@ function editProject(projectId) {
   document.getElementById("startDate").value = project.startDate;
   document.getElementById("endDate").value = project.endDate;
   document.getElementById("priority").value = project.priority;
-  document.getElementById("status").value = project.status;
+  
+  // Establecer el estado, agregándolo temporalmente si no existe en la lista administrada
+  if (statusSelect) {
+    const statuses = getStatuses();
+    const statusExists = statuses.some(s => s.key === project.status);
+    
+    if (!statusExists && project.status) {
+      // Si el estado no está en la lista administrada, agregarlo temporalmente
+      const option = document.createElement("option");
+      option.value = project.status;
+      option.textContent = project.status;
+      statusSelect.appendChild(option);
+    }
+    
+    statusSelect.value = project.status || "";
+  }
   document.getElementById("description").value = project.description;
 
   document.getElementById("form-title").textContent = "Editar proyecto";
@@ -1467,3 +1708,34 @@ function resetTaskForm() {
     cancelTaskEditButton.style.display = "none";
   }
 }
+// Funciones para colapsar/expandir el formulario de proyecto
+function initializeProjectFormCollapse() {
+  const isCollapsed = localStorage.getItem("projectFormCollapsed") === "true";
+  if (isCollapsed && projectForm) {
+    projectForm.classList.add("form--collapsed");
+    if (toggleProjectFormIcon) {
+      toggleProjectFormIcon.textContent = "▶";
+    }
+  }
+}
+
+function handleToggleProjectForm() {
+  if (!projectForm) return;
+  
+  const isCollapsed = projectForm.classList.contains("form--collapsed");
+  
+  if (isCollapsed) {
+    projectForm.classList.remove("form--collapsed");
+    if (toggleProjectFormIcon) {
+      toggleProjectFormIcon.textContent = "▼";
+    }
+    localStorage.setItem("projectFormCollapsed", "false");
+  } else {
+    projectForm.classList.add("form--collapsed");
+    if (toggleProjectFormIcon) {
+      toggleProjectFormIcon.textContent = "▶";
+    }
+    localStorage.setItem("projectFormCollapsed", "true");
+  }
+}
+

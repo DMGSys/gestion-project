@@ -18,7 +18,7 @@
         <div>
           <h1>Seguimiento de Proyectos de IT</h1>
           <p class="app__subtitle">
-            Registra estimaciones de tiempo, tareas, fechas y responsables para mantener el control.
+            Registra estimaciones de tiempo, tar, fechas y responsables para mantener el control.
           </p>
           <div class="app__metadata" id="lastUpdateInfo">
             <span class="metadata__label">Última actualización:</span>
@@ -58,6 +58,9 @@
         <div class="tabs__header" role="tablist">
           <button class="tabs__tab tabs__tab--active" data-tab="projects" role="tab" aria-selected="true" aria-controls="projects-panel">
             Proyectos
+          </button>
+          <button class="tabs__tab" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="dashboard-panel">
+            Dashboard
           </button>
           <button class="tabs__tab" data-tab="admin" role="tab" aria-selected="false" aria-controls="admin-panel">
             Administración
@@ -119,11 +122,16 @@
               Completa la información para añadir un proyecto a tu tablero.
             </p>
           </div>
-          <button id="cancelEdit" class="button button--ghost" type="button">
-            Cancelar edición
-          </button>
+          <div class="card__header-actions">
+            <button id="toggleProjectForm" class="button button--ghost" type="button" title="Colapsar/Expandir formulario">
+              <span id="toggleProjectFormIcon">▼</span>
+            </button>
+            <button id="cancelEdit" class="button button--ghost" type="button">
+              Cancelar edición
+            </button>
+          </div>
         </div>
-        <form id="projectForm" class="form">
+        <form id="projectForm" class="form form--collapsible">
           <input type="hidden" id="projectId" name="projectId" />
           <div class="form__grid">
             <label class="form__field">
@@ -207,10 +215,8 @@
             </label>
             <label class="form__field">
               <span>Estado</span>
-              <select id="status" name="status">
-                <option value="en-analisis">En análisis</option>
-                <option value="en-desarrollo">En desarrollo</option>
-                <option value="terminado">Terminado</option>
+              <select id="status" name="status" required>
+                <!-- Las opciones se cargarán dinámicamente desde los estados administrados -->
               </select>
             </label>
             <label class="form__field form__field--full">
@@ -330,6 +336,24 @@
       </section>
         </div>
 
+        <!-- Pestaña de Dashboard -->
+        <div id="dashboard-panel" class="tabs__panel" role="tabpanel" aria-labelledby="dashboard-tab">
+          <section class="card" aria-label="Dashboard de métricas">
+            <div class="card__header">
+              <div>
+                <h2>Dashboard de Métricas</h2>
+                <p class="card__subtitle">
+                  Visualización interactiva de horas, desarrolladores, tiempos y demoras.
+                </p>
+              </div>
+            </div>
+            
+            <div class="dashboard" id="dashboardContainer">
+              <!-- Las métricas se renderizarán aquí -->
+            </div>
+          </section>
+        </div>
+
         <!-- Pestaña de Administración -->
         <div id="admin-panel" class="tabs__panel" role="tabpanel" aria-labelledby="admin-tab">
           <section class="card" aria-label="Administración de responsables y desarrolladores">
@@ -389,6 +413,28 @@
                   </div>
                 </form>
                 <ul id="developersList" class="people-admin__list"></ul>
+              </div>
+
+              <div class="people-admin__section">
+                <h3 class="people-admin__title">Estados</h3>
+                <form id="statusForm" class="people-admin__form">
+                  <div class="people-admin__input-group">
+                    <input
+                      id="newStatusKey"
+                      type="text"
+                      placeholder="Clave (ej: en-pausa)"
+                      required
+                    />
+                    <input
+                      id="newStatusLabel"
+                      type="text"
+                      placeholder="Etiqueta (ej: En pausa)"
+                      required
+                    />
+                    <button class="button" type="submit">Agregar</button>
+                  </div>
+                </form>
+                <ul id="statusesList" class="people-admin__list"></ul>
               </div>
             </div>
           </section>

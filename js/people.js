@@ -23,6 +23,12 @@ const DEFAULT_AREAS = [
   "CCHH"
 ];
 
+const DEFAULT_STATUSES = [
+  { key: "en-analisis", label: "En análisis" },
+  { key: "en-desarrollo", label: "En desarrollo" },
+  { key: "terminado", label: "Terminado" },
+];
+
 export function loadPeople() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY_PEOPLE);
@@ -32,6 +38,9 @@ export function loadPeople() {
         developers: Array.isArray(parsed.developers) ? parsed.developers : DEFAULT_DEVELOPERS,
         owners: Array.isArray(parsed.owners) ? parsed.owners : DEFAULT_OWNERS,
         areas: Array.isArray(parsed.areas) ? parsed.areas : DEFAULT_AREAS,
+        statuses: Array.isArray(parsed.statuses) && parsed.statuses.length > 0 
+          ? parsed.statuses 
+          : DEFAULT_STATUSES,
       };
     }
     // Si no hay datos guardados, usar valores por defecto
@@ -39,6 +48,7 @@ export function loadPeople() {
       developers: [...DEFAULT_DEVELOPERS],
       owners: [...DEFAULT_OWNERS],
       areas: [...DEFAULT_AREAS],
+      statuses: [...DEFAULT_STATUSES],
     };
   } catch (error) {
     console.error("Error al cargar personas", error);
@@ -46,6 +56,7 @@ export function loadPeople() {
       developers: [...DEFAULT_DEVELOPERS],
       owners: [...DEFAULT_OWNERS],
       areas: [...DEFAULT_AREAS],
+      statuses: [...DEFAULT_STATUSES],
     };
   }
 }
@@ -211,6 +222,68 @@ export function updateDeveloper(oldName, newName) {
   
   people.developers[index] = trimmedNewName;
   people.developers.sort();
+  savePeople(people);
+  return true;
+}
+
+// Funciones para gestionar estados
+export function getStatuses() {
+  return loadPeople().statuses;
+}
+
+export function addStatus(key, label) {
+  const people = loadPeople();
+  const trimmedKey = key.trim().toLowerCase().replace(/\s+/g, "-");
+  const trimmedLabel = label.trim();
+  
+  if (!trimmedKey || !trimmedLabel) {
+    return false;
+  }
+  
+  // Verificar que no exista la key
+  if (people.statuses.some(s => s.key === trimmedKey)) {
+    return false;
+  }
+  
+  people.statuses.push({ key: trimmedKey, label: trimmedLabel });
+  savePeople(people);
+  return true;
+}
+
+export function removeStatus(key) {
+  const people = loadPeople();
+  const index = people.statuses.findIndex(s => s.key === key);
+  
+  if (index === -1) {
+    return false;
+  }
+  
+  people.statuses.splice(index, 1);
+  savePeople(people);
+  return true;
+}
+
+export function updateStatus(oldKey, newKey, newLabel) {
+  const people = loadPeople();
+  const index = people.statuses.findIndex(s => s.key === oldKey);
+  
+  if (index === -1) {
+    return false;
+  }
+  
+  const trimmedNewKey = newKey.trim().toLowerCase().replace(/\s+/g, "-");
+  const trimmedNewLabel = newLabel.trim();
+  
+  if (!trimmedNewKey || !trimmedNewLabel) {
+    return false;
+  }
+  
+  // Verificar que la nueva key no exista (excepto si es la misma)
+  if (trimmedNewKey !== oldKey && people.statuses.some(s => s.key === trimmedNewKey)) {
+    return false;
+  }
+  
+  people.statuses[index] = { key: trimmedNewKey, label: trimmedNewLabel };
   savePeople(people);
   return true;
 }

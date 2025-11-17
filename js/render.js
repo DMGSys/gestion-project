@@ -1,5 +1,5 @@
 // Módulo de renderizado
-import { statuses, getFilteredProjects, hasActiveFilters, capitalize, formatDate, findStatusLabel } from "./projects.js";
+import { getStatusesList, getFilteredProjects, hasActiveFilters, capitalize, formatDate, findStatusLabel } from "./projects.js";
 import { getTasksSummary } from "./tasks.js";
 
 let projects = [];
@@ -18,11 +18,18 @@ export function renderBoard(boardElement, projectCardTemplate) {
 
   const filteredProjects = getFilteredProjects(projects, filters);
   const filtersApplied = hasActiveFilters(filters);
+  const statuses = getStatusesList();
 
   statuses.forEach((status) => {
     const projectsByStatus = filteredProjects.filter(
       (item) => item.status === status.key
     );
+
+    // Solo mostrar columnas que tienen proyectos o que tienen filtros aplicados
+    // Si no hay filtros, solo mostrar estados con proyectos
+    if (!filtersApplied && projectsByStatus.length === 0) {
+      return; // Saltar esta columna si no tiene proyectos y no hay filtros
+    }
 
     const column = document.createElement("section");
     column.className = "column";
@@ -219,6 +226,7 @@ function createPeopleHTML(project) {
 }
 
 function toggleMoveButtons(moveLeft, moveRight, statusKey) {
+  const statuses = getStatusesList();
   const index = statuses.findIndex((status) => status.key === statusKey);
   if (moveLeft) moveLeft.disabled = index <= 0;
   if (moveRight) moveRight.disabled = index >= statuses.length - 1;
@@ -283,6 +291,7 @@ export function renderList(listBodyElement) {
         `Actualizar estado del proyecto ${project.name}`
       );
 
+      const statuses = getStatusesList();
       statuses.forEach((status) => {
         const option = document.createElement("option");
         option.value = status.key;
@@ -549,6 +558,7 @@ export function updateFiltersSummary(filtersSummaryElement) {
     return acc;
   }, {});
 
+  const statuses = getStatusesList();
   const breakdown = statuses
     .map((status) => `${status.label}: ${statusCounts[status.key] || 0}`)
     .join(" · ");
