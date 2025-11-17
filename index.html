@@ -16,14 +16,25 @@
     <div class="app">
       <header class="app__header">
         <div>
-          <h1>Seguimiento de Proyectos</h1>
+          <h1>Seguimiento de Proyectos de IT</h1>
           <p class="app__subtitle">
-            Registra estimaciones, fechas y responsables para mantener el control.
+            Registra estimaciones de tiempo, tareas, fechas y responsables para mantener el control.
           </p>
+          <div class="app__metadata" id="lastUpdateInfo">
+            <span class="metadata__label">Última actualización:</span>
+            <span class="metadata__value" id="lastUpdateTime">Cargando...</span>
+            <span class="metadata__status" id="saveStatus"></span>
+          </div>
         </div>
         <div class="app__actions">
+          <button id="toggleTheme" class="button button--ghost" type="button" title="Cambiar tema">
+            <span id="themeIcon">🌙</span>
+          </button>
           <button id="toggleView" class="button button--secondary" type="button">
-            Ver como tablero
+            Ver como lista
+          </button>
+          <button id="toggleTimeline" class="button button--secondary" type="button">
+            Ver línea de tiempo
           </button>
           <div class="toolbar" role="group" aria-label="Herramientas de datos">
             <input
@@ -163,6 +174,7 @@
                 min="0"
                 step="1"
                 placeholder="Ej. 120"
+                title="Horas laborales de 8 a 18hs. de lunes a viernes"
               />
             </label>
             <label class="form__field">
@@ -231,7 +243,7 @@
                 <th>Área</th>
                 <th>Responsable</th>
                 <th>Desarrolladores</th>
-                <th>Estimación</th>
+                <th title="Horas laborales de 8 a 18hs. de lunes a viernes">Estimación</th>
                 <th>Puntos</th>
                 <th>Inicio</th>
                 <th>Fin</th>
@@ -244,6 +256,77 @@
             <tbody id="listBody"></tbody>
           </table>
         </div>
+      </section>
+
+      <section class="timeline" id="timelineView" aria-live="polite" style="display: none;">
+        <div class="timeline__header">
+          <h2>Línea de Tiempo de Proyectos</h2>
+          <div class="timeline__filters">
+            <div class="timeline__filter-group">
+              <label class="timeline__filter-label">
+                <span>Desde</span>
+                <input
+                  type="date"
+                  id="timelineDateFrom"
+                  class="timeline__filter-input"
+                />
+              </label>
+              <label class="timeline__filter-label">
+                <span>Hasta</span>
+                <input
+                  type="date"
+                  id="timelineDateTo"
+                  class="timeline__filter-input"
+                />
+              </label>
+              <button
+                type="button"
+                id="timelineFilterApply"
+                class="button button--secondary"
+              >
+                Aplicar
+              </button>
+              <button
+                type="button"
+                id="timelineFilterReset"
+                class="button button--ghost"
+              >
+                Limpiar
+              </button>
+            </div>
+            <div class="timeline__quick-filters">
+              <button
+                type="button"
+                class="timeline__quick-filter button button--ghost button--small"
+                data-period="month"
+              >
+                Este mes
+              </button>
+              <button
+                type="button"
+                class="timeline__quick-filter button button--ghost button--small"
+                data-period="quarter"
+              >
+                Este trimestre
+              </button>
+              <button
+                type="button"
+                class="timeline__quick-filter button button--ghost button--small"
+                data-period="year"
+              >
+                Este año
+              </button>
+              <button
+                type="button"
+                class="timeline__quick-filter button button--ghost button--small"
+                data-period="all"
+              >
+                Todos
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="timeline__container" id="timelineContainer"></div>
       </section>
         </div>
 
@@ -395,9 +478,12 @@
               </label>
               <label class="form__field">
                 <span>Asignado a</span>
-                <select id="taskAssignedTo" name="taskAssignedTo">
+                <select id="taskAssignedTo" name="taskAssignedTo" multiple size="4" class="task-assigned-select">
                   <option value="">Sin asignar</option>
                 </select>
+                <small>
+                  Mantén presionada la tecla <kbd>Ctrl</kbd> (o <kbd>Cmd</kbd> en Mac) para seleccionar múltiples desarrolladores
+                </small>
               </label>
               <label class="form__field">
                 <span>Tiempo estimado (horas)</span>

@@ -191,7 +191,7 @@ function createMetaHTML(project) {
   }
 
   if (project.estimate) {
-    rows.push(`<div><dt>Estimación</dt><dd>${project.estimate} h</dd></div>`);
+    rows.push(`<div><dt>Estimación</dt><dd title="Horas laborales de 8 a 18hs. de lunes a viernes">${project.estimate} h</dd></div>`);
   }
 
   if (project.startDate) {
@@ -250,7 +250,7 @@ export function renderList(listBodyElement) {
       <td>${project.area || "-"}</td>
       <td>${project.owner || "-"}</td>
       <td>${(project.developers || []).join(", ") || "-"}</td>
-      <td>${project.estimate ? `${project.estimate} h` : "-"}</td>
+      <td title="${project.estimate ? 'Horas laborales de 8 a 18hs. de lunes a viernes' : ''}">${project.estimate ? `${project.estimate} h` : "-"}</td>
       <td>${project.points ?? "-"}</td>
       <td>${project.startDate ? formatDate(project.startDate) : "-"}</td>
       <td>${project.endDate ? formatDate(project.endDate) : "-"}</td>
@@ -325,6 +325,211 @@ export function renderList(listBodyElement) {
       }
     });
   });
+}
+
+export function renderTimeline(containerElement, dateFilters = null) {
+  containerElement.innerHTML = "";
+  
+  const filteredProjects = getFilteredProjects(projects, filters);
+  const filtersApplied = hasActiveFilters(filters);
+  
+  // Filtrar proyectos que tengan al menos una fecha
+  let projectsWithDates = filteredProjects.filter(
+    (project) => project.startDate || project.endDate
+  );
+  
+  // Aplicar filtros de fecha si existen
+  if (dateFilters && (dateFilters.from || dateFilters.to)) {
+    projectsWithDates = projectsWithDates.filter((project) => {
+      const startDate = project.startDate ? new Date(project.startDate) : null;
+      const endDate = project.endDate ? new Date(project.endDate) : null;
+      
+      // Si no tiene fechas, no se muestra
+      if (!startDate && !endDate) return false;
+      
+      const filterFrom = dateFilters.from ? new Date(dateFilters.from) : null;
+      const filterTo = dateFilters.to ? new Date(dateFilters.to) : null;
+      
+      if (filterFrom) filterFrom.setHours(0, 0, 0, 0);
+      if (filterTo) filterTo.setHours(23, 59, 59, 999);
+      
+      // Un proyecto se muestra si se superpone con el rango de fechas
+      // Caso 1: Proyecto tiene fecha de inicio y fin
+      if (startDate && endDate) {
+        // El proyecto se superpone si: inicio <= filterTo Y fin >= filterFrom
+        if (filterFrom && endDate < filterFrom) return false;
+        if (filterTo && startDate > filterTo) return false;
+        return true;
+      }
+      
+      // Caso 2: Solo tiene fecha de inicio
+      if (startDate && !endDate) {
+        if (filterFrom && startDate < filterFrom) return false;
+        if (filterTo && startDate > filterTo) return false;
+        return true;
+      }
+      
+      // Caso 3: Solo tiene fecha de fin
+      if (!startDate && endDate) {
+        if (filterFrom && endDate < filterFrom) return false;
+        if (filterTo && endDate > filterTo) return false;
+        return true;
+      }
+      
+      return true;
+    });
+  }
+  
+  if (projectsWithDates.length === 0) {
+    const message = filtersApplied
+      ? "No hay proyectos con fechas que coincidan con los filtros aplicados"
+      : "No hay proyectos con fechas registradas";
+    containerElement.innerHTML = `<div class="empty-state">${message}</div>`;
+    return;
+  }
+  
+  // Calcular el rango de fechas
+  const dates = projectsWithDates
+    .flatMap((p) => [p.startDate, p.endDate])
+    .filter(Boolean)
+    .map((d) => new Date(d));
+  
+  if (dates.length === 0) {
+    containerElement.innerHTML = `<div class="empty-state">No se pueden calcular fechas</div>`;
+    return;
+  }
+  
+  const minDate = new Date(Math.min(...dates));
+  const maxDate = new Date(Math.max(...dates));
+  
+  // Agregar un margen de 30 días antes y después
+  minDate.setDate(minDate.getDate() - 30);
+  maxDate.setDate(maxDate.getDate() + 30);
+  
+  const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Crear contenedor de timeline
+  const timelineWrapper = document.createElement("div");
+  timelineWrapper.className = "timeline__wrapper";
+  
+  // Crear escala de tiempo
+  const timeScale = document.createElement("div");
+  timeScale.className = "timeline__scale";
+  
+  // Generar marcas de tiempo (una por mes o semana según el rango)
+  const scaleInterval = totalDays > 180 ? "month" : "week";
+  const marks = [];
+  const current = new Date(minDate);
+  
+  while (current <= maxDate) {
+    marks.push(new Date(current));
+    if (scaleInterval === "month") {
+      current.setMonth(current.getMonth() + 1);
+    } else {
+      current.setDate(current.getDate() + 7);
+    }
+  }
+  
+  const scaleHTML = marks
+    .map((date) => {
+      const position = ((date - minDate) / (maxDate - minDate)) * 100;
+      return `
+        <div class="timeline__mark" style="left: ${position}%">
+          <span class="timeline__mark-label">${formatDate(date.toISOString().split('T')[0])}</span>
+        </div>
+      `;
+    })
+    .join("");
+  
+  timeScale.innerHTML = scaleHTML;
+  timelineWrapper.appendChild(timeScale);
+  
+  // Línea de hoy
+  if (today >= minDate && today <= maxDate) {
+    const todayPosition = ((today - minDate) / (maxDate - minDate)) * 100;
+    const todayLine = document.createElement("div");
+    todayLine.className = "timeline__today";
+    todayLine.style.left = `${todayPosition}%`;
+    todayLine.setAttribute("title", `Hoy: ${formatDate(today.toISOString().split('T')[0])}`);
+    timelineWrapper.appendChild(todayLine);
+  }
+  
+  // Crear barras de proyectos
+  const projectsContainer = document.createElement("div");
+  projectsContainer.className = "timeline__projects";
+  
+  projectsWithDates.forEach((project, index) => {
+    const projectBar = document.createElement("div");
+    projectBar.className = `timeline__project timeline__project--${project.priority || "media"} timeline__project--${project.status || "en-analisis"}`;
+    
+    const startDate = project.startDate ? new Date(project.startDate) : null;
+    const endDate = project.endDate ? new Date(project.endDate) : null;
+    
+    let left = 0;
+    let width = 0;
+    
+    if (startDate && endDate) {
+      left = ((startDate - minDate) / (maxDate - minDate)) * 100;
+      width = ((endDate - startDate) / (maxDate - minDate)) * 100;
+    } else if (startDate) {
+      left = ((startDate - minDate) / (maxDate - minDate)) * 100;
+      width = 5; // Ancho mínimo para proyectos sin fecha de fin
+    } else if (endDate) {
+      left = 0;
+      width = ((endDate - minDate) / (maxDate - minDate)) * 100;
+    }
+    
+    // Asegurar que el ancho sea mínimo
+    width = Math.max(width, 2);
+    left = Math.max(0, Math.min(left, 98));
+    
+    projectBar.style.left = `${left}%`;
+    projectBar.style.width = `${width}%`;
+    
+    // Información del proyecto
+    const projectInfo = document.createElement("div");
+    projectInfo.className = "timeline__project-info";
+    
+    const projectName = document.createElement("div");
+    projectName.className = "timeline__project-name";
+    projectName.textContent = project.name;
+    
+    const projectMeta = document.createElement("div");
+    projectMeta.className = "timeline__project-meta";
+    
+    const metaItems = [];
+    if (project.area) metaItems.push(`Área: ${project.area}`);
+    if (project.owner) metaItems.push(`Responsable: ${project.owner}`);
+    if (project.startDate) metaItems.push(`Inicio: ${formatDate(project.startDate)}`);
+    if (project.endDate) metaItems.push(`Fin: ${formatDate(project.endDate)}`);
+    
+    projectMeta.textContent = metaItems.join(" • ");
+    
+    projectInfo.appendChild(projectName);
+    projectInfo.appendChild(projectMeta);
+    projectBar.appendChild(projectInfo);
+    
+    // Agregar eventos
+    projectBar.addEventListener("click", () => {
+      if (callbacks.onViewDetail) {
+        callbacks.onViewDetail(project.id);
+      }
+    });
+    
+    projectBar.setAttribute("title", `${project.name} - ${project.area || "Sin área"}`);
+    projectBar.style.top = `${index * 60}px`;
+    
+    projectsContainer.appendChild(projectBar);
+  });
+  
+  timelineWrapper.appendChild(projectsContainer);
+  containerElement.appendChild(timelineWrapper);
+  
+  // Ajustar altura del contenedor
+  const totalHeight = projectsWithDates.length * 60 + 100;
+  containerElement.style.minHeight = `${totalHeight}px`;
 }
 
 export function updateFiltersSummary(filtersSummaryElement) {

@@ -1,5 +1,6 @@
 // Módulo de almacenamiento - Gestión de localStorage
 const STORAGE_KEY = "gestionProjects";
+const STORAGE_KEY_METADATA = "gestionProjectsMetadata";
 const DATA_URL = "data/projects.json";
 
 export async function loadProjects() {
@@ -36,7 +37,43 @@ export function getStoredProjects() {
 }
 
 export function saveProjects(projects) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    
+    // Guardar metadata con timestamp de última actualización
+    const metadata = {
+      lastUpdate: new Date().toISOString(),
+      lastUpdateTimestamp: Date.now(),
+      totalProjects: projects.length,
+    };
+    localStorage.setItem(STORAGE_KEY_METADATA, JSON.stringify(metadata));
+    
+    return true;
+  } catch (error) {
+    console.error("Error al guardar proyectos", error);
+    return false;
+  }
+}
+
+export function getMetadata() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY_METADATA);
+    if (data) {
+      return JSON.parse(data);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error al obtener metadata", error);
+    return null;
+  }
+}
+
+export function getLastUpdate() {
+  const metadata = getMetadata();
+  if (metadata && metadata.lastUpdate) {
+    return new Date(metadata.lastUpdate);
+  }
+  return null;
 }
 
 function normalizeImportedData(data) {
@@ -66,6 +103,34 @@ function normalizeProject(rawProject) {
     return null;
   }
 
+  // Si el proyecto ya tiene el formato correcto (tiene id y name), preservar los datos originales
+  // Esto evita que se pierdan datos al normalizar proyectos ya guardados
+  if (rawProject.id && rawProject.name) {
+    // Proyecto ya normalizado, preservar todos los datos
+    return {
+      id: String(rawProject.id).trim(),
+      name: String(rawProject.name).trim(),
+      area: String(rawProject.area ?? "").trim(),
+      owner: String(rawProject.owner ?? "").trim(),
+      developers: Array.isArray(rawProject.developers) 
+        ? rawProject.developers.map(d => String(d).trim()).filter(Boolean)
+        : (typeof rawProject.developers === "string" && rawProject.developers
+          ? rawProject.developers.split(",").map(d => d.trim()).filter(Boolean)
+          : []),
+      estimate: String(rawProject.estimate ?? "").trim(),
+      points: rawProject.points !== null && rawProject.points !== undefined 
+        ? Number(rawProject.points) 
+        : null,
+      startDate: String(rawProject.startDate ?? "").trim(),
+      endDate: String(rawProject.endDate ?? "").trim(),
+      priority: String(rawProject.priority ?? "media").trim(),
+      status: String(rawProject.status ?? "en-analisis").trim(),
+      description: String(rawProject.description ?? "").trim(),
+      tasks: Array.isArray(rawProject.tasks) ? rawProject.tasks : [],
+    };
+  }
+
+  // Proyecto sin normalizar, aplicar normalización completa
   const area = String(rawProject.area ?? rawProject.Area ?? "").trim();
   const owner = String(
     rawProject.owner ?? rawProject.responsable ?? rawProject.Responsable ?? ""

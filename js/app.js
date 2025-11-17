@@ -1,5 +1,5 @@
 // Aplicación principal - Gestión de Proyectos
-import { loadProjects, saveProjects } from "./storage.js";
+import { loadProjects, saveProjects, getLastUpdate, getMetadata } from "./storage.js";
 import {
   statuses,
   createProject,
@@ -22,6 +22,7 @@ import {
   initializeRender,
   renderBoard,
   renderList,
+  renderTimeline,
   updateFiltersSummary,
   synchronizeAreaOptions,
 } from "./render.js";
@@ -29,10 +30,13 @@ import {
   loadPeople,
   addDeveloper,
   removeDeveloper,
+  updateDeveloper,
   addOwner,
   removeOwner,
+  updateOwner,
   addArea,
   removeArea,
+  updateArea,
   getDevelopers,
   getOwners,
   getAreas,
@@ -43,7 +47,16 @@ import {
 const board = document.getElementById("board");
 const listView = document.getElementById("listView");
 const listBody = document.getElementById("listBody");
+const timelineView = document.getElementById("timelineView");
+const timelineContainer = document.getElementById("timelineContainer");
+const timelineDateFrom = document.getElementById("timelineDateFrom");
+const timelineDateTo = document.getElementById("timelineDateTo");
+const timelineFilterApply = document.getElementById("timelineFilterApply");
+const timelineFilterReset = document.getElementById("timelineFilterReset");
 const toggleViewButton = document.getElementById("toggleView");
+const toggleTimelineButton = document.getElementById("toggleTimeline");
+const toggleThemeButton = document.getElementById("toggleTheme");
+const themeIcon = document.getElementById("themeIcon");
 const projectForm = document.getElementById("projectForm");
 const formAreaSelect = document.getElementById("area");
 const cancelEditButton = document.getElementById("cancelEdit");
@@ -57,6 +70,8 @@ const filterPrioritySelect = document.getElementById("filterPriority");
 const filterStatusSelect = document.getElementById("filterStatus");
 const clearFiltersButton = document.getElementById("clearFilters");
 const filtersSummary = document.getElementById("filtersSummary");
+const lastUpdateTime = document.getElementById("lastUpdateTime");
+const saveStatus = document.getElementById("saveStatus");
 
 // Modal de detalle del proyecto
 const projectDetailModal = document.getElementById("projectDetailModal");
@@ -79,9 +94,13 @@ const developersSelect = document.getElementById("developers");
 const taskAssignedToSelect = document.getElementById("taskAssignedTo");
 
 let projects = [];
-let currentView = "list";
+let currentView = "board";
 let currentProjectId = null;
 let currentTaskId = null;
+let timelineDateFilters = {
+  from: null,
+  to: null,
+};
 const filters = {
   search: "",
   area: "",
@@ -114,12 +133,32 @@ async function initialize() {
 
   renderBoard(board, document.getElementById("projectCardTemplate"));
   renderList(listBody);
+  if (timelineContainer) {
+    renderTimeline(timelineContainer, timelineDateFilters);
+  }
   updateFiltersSummary(filtersSummary);
   updateView();
+  updateLastUpdateInfo();
+  
+  // Actualizar la última actualización cada minuto
+  setInterval(updateLastUpdateInfo, 60000);
 
   projectForm.addEventListener("submit", handleSubmit);
   toggleViewButton.addEventListener("click", handleToggleView);
+  if (toggleTimelineButton) {
+    toggleTimelineButton.addEventListener("click", handleToggleTimeline);
+  }
+  if (toggleThemeButton) {
+    toggleThemeButton.addEventListener("click", handleToggleTheme);
+  }
   cancelEditButton.addEventListener("click", resetForm);
+  
+  // Inicializar tema
+  initializeTheme();
+  
+  // Inicializar filtros de timeline
+  initializeTimelineFilters();
+  
   importButton.addEventListener("click", () => importFileInput.click());
   exportButton.addEventListener("click", exportProjects);
   importFileInput.addEventListener("change", handleImportFile);
@@ -244,13 +283,88 @@ function renderPeopleLists() {
   if (areasList) {
     const areas = getAreas();
     areasList.innerHTML = areas.map(area => `
-      <li class="people-admin__item">
-        <span>${area}</span>
-        <button class="button button--ghost button--small" data-action="remove-area" data-name="${area}" type="button">
-          Eliminar
-        </button>
+      <li class="people-admin__item" data-item-name="${area}">
+        <span class="people-admin__item-name">${area}</span>
+        <input class="people-admin__item-input" type="text" value="${area}" style="display: none;" />
+        <div class="people-admin__item-actions">
+          <button class="button button--ghost button--small" data-action="edit-area" data-name="${area}" type="button">
+            Editar
+          </button>
+          <button class="button button--ghost button--small" data-action="remove-area" data-name="${area}" type="button">
+            Eliminar
+          </button>
+        </div>
       </li>
     `).join("");
+    
+    areasList.querySelectorAll("[data-action='edit-area']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const item = btn.closest(".people-admin__item");
+        const nameSpan = item.querySelector(".people-admin__item-name");
+        const input = item.querySelector(".people-admin__item-input");
+        const actions = item.querySelector(".people-admin__item-actions");
+        const oldName = btn.dataset.name;
+        
+        nameSpan.style.display = "none";
+        input.style.display = "block";
+        input.focus();
+        input.select();
+        
+        const saveBtn = document.createElement("button");
+        saveBtn.className = "button button--small";
+        saveBtn.textContent = "Guardar";
+        saveBtn.type = "button";
+        
+        const cancelBtn = document.createElement("button");
+        cancelBtn.className = "button button--ghost button--small";
+        cancelBtn.textContent = "Cancelar";
+        cancelBtn.type = "button";
+        
+        const tempActions = document.createElement("div");
+        tempActions.className = "people-admin__item-actions";
+        tempActions.appendChild(saveBtn);
+        tempActions.appendChild(cancelBtn);
+        actions.style.display = "none";
+        item.appendChild(tempActions);
+        
+        const finishEdit = () => {
+          nameSpan.style.display = "";
+          input.style.display = "none";
+          actions.style.display = "";
+          tempActions.remove();
+        };
+        
+        saveBtn.addEventListener("click", () => {
+          const newName = input.value.trim();
+          if (newName && newName !== oldName) {
+            if (updateArea(oldName, newName)) {
+              updateProjectsAfterRename("area", oldName, newName);
+              renderPeopleLists();
+              updateAllSelects();
+              refreshViews();
+              showSaveStatus();
+            } else {
+              alert("El nombre ya existe o no es válido.");
+            }
+          } else {
+            finishEdit();
+          }
+        });
+        
+        cancelBtn.addEventListener("click", () => {
+          input.value = oldName;
+          finishEdit();
+        });
+        
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            saveBtn.click();
+          } else if (e.key === "Escape") {
+            cancelBtn.click();
+          }
+        });
+      });
+    });
     
     areasList.querySelectorAll("[data-action='remove-area']").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -267,13 +381,88 @@ function renderPeopleLists() {
   if (ownersList) {
     const owners = getOwners();
     ownersList.innerHTML = owners.map(owner => `
-      <li class="people-admin__item">
-        <span>${owner}</span>
-        <button class="button button--ghost button--small" data-action="remove-owner" data-name="${owner}" type="button">
-          Eliminar
-        </button>
+      <li class="people-admin__item" data-item-name="${owner}">
+        <span class="people-admin__item-name">${owner}</span>
+        <input class="people-admin__item-input" type="text" value="${owner}" style="display: none;" />
+        <div class="people-admin__item-actions">
+          <button class="button button--ghost button--small" data-action="edit-owner" data-name="${owner}" type="button">
+            Editar
+          </button>
+          <button class="button button--ghost button--small" data-action="remove-owner" data-name="${owner}" type="button">
+            Eliminar
+          </button>
+        </div>
       </li>
     `).join("");
+    
+    ownersList.querySelectorAll("[data-action='edit-owner']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const item = btn.closest(".people-admin__item");
+        const nameSpan = item.querySelector(".people-admin__item-name");
+        const input = item.querySelector(".people-admin__item-input");
+        const actions = item.querySelector(".people-admin__item-actions");
+        const oldName = btn.dataset.name;
+        
+        nameSpan.style.display = "none";
+        input.style.display = "block";
+        input.focus();
+        input.select();
+        
+        const saveBtn = document.createElement("button");
+        saveBtn.className = "button button--small";
+        saveBtn.textContent = "Guardar";
+        saveBtn.type = "button";
+        
+        const cancelBtn = document.createElement("button");
+        cancelBtn.className = "button button--ghost button--small";
+        cancelBtn.textContent = "Cancelar";
+        cancelBtn.type = "button";
+        
+        const tempActions = document.createElement("div");
+        tempActions.className = "people-admin__item-actions";
+        tempActions.appendChild(saveBtn);
+        tempActions.appendChild(cancelBtn);
+        actions.style.display = "none";
+        item.appendChild(tempActions);
+        
+        const finishEdit = () => {
+          nameSpan.style.display = "";
+          input.style.display = "none";
+          actions.style.display = "";
+          tempActions.remove();
+        };
+        
+        saveBtn.addEventListener("click", () => {
+          const newName = input.value.trim();
+          if (newName && newName !== oldName) {
+            if (updateOwner(oldName, newName)) {
+              updateProjectsAfterRename("owner", oldName, newName);
+              renderPeopleLists();
+              updateAllSelects();
+              refreshViews();
+              showSaveStatus();
+            } else {
+              alert("El nombre ya existe o no es válido.");
+            }
+          } else {
+            finishEdit();
+          }
+        });
+        
+        cancelBtn.addEventListener("click", () => {
+          input.value = oldName;
+          finishEdit();
+        });
+        
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            saveBtn.click();
+          } else if (e.key === "Escape") {
+            cancelBtn.click();
+          }
+        });
+      });
+    });
     
     ownersList.querySelectorAll("[data-action='remove-owner']").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -290,13 +479,88 @@ function renderPeopleLists() {
   if (developersList) {
     const developers = getDevelopers();
     developersList.innerHTML = developers.map(dev => `
-      <li class="people-admin__item">
-        <span>${dev}</span>
-        <button class="button button--ghost button--small" data-action="remove-developer" data-name="${dev}" type="button">
-          Eliminar
-        </button>
+      <li class="people-admin__item" data-item-name="${dev}">
+        <span class="people-admin__item-name">${dev}</span>
+        <input class="people-admin__item-input" type="text" value="${dev}" style="display: none;" />
+        <div class="people-admin__item-actions">
+          <button class="button button--ghost button--small" data-action="edit-developer" data-name="${dev}" type="button">
+            Editar
+          </button>
+          <button class="button button--ghost button--small" data-action="remove-developer" data-name="${dev}" type="button">
+            Eliminar
+          </button>
+        </div>
       </li>
     `).join("");
+    
+    developersList.querySelectorAll("[data-action='edit-developer']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const item = btn.closest(".people-admin__item");
+        const nameSpan = item.querySelector(".people-admin__item-name");
+        const input = item.querySelector(".people-admin__item-input");
+        const actions = item.querySelector(".people-admin__item-actions");
+        const oldName = btn.dataset.name;
+        
+        nameSpan.style.display = "none";
+        input.style.display = "block";
+        input.focus();
+        input.select();
+        
+        const saveBtn = document.createElement("button");
+        saveBtn.className = "button button--small";
+        saveBtn.textContent = "Guardar";
+        saveBtn.type = "button";
+        
+        const cancelBtn = document.createElement("button");
+        cancelBtn.className = "button button--ghost button--small";
+        cancelBtn.textContent = "Cancelar";
+        cancelBtn.type = "button";
+        
+        const tempActions = document.createElement("div");
+        tempActions.className = "people-admin__item-actions";
+        tempActions.appendChild(saveBtn);
+        tempActions.appendChild(cancelBtn);
+        actions.style.display = "none";
+        item.appendChild(tempActions);
+        
+        const finishEdit = () => {
+          nameSpan.style.display = "";
+          input.style.display = "none";
+          actions.style.display = "";
+          tempActions.remove();
+        };
+        
+        saveBtn.addEventListener("click", () => {
+          const newName = input.value.trim();
+          if (newName && newName !== oldName) {
+            if (updateDeveloper(oldName, newName)) {
+              updateProjectsAfterRename("developer", oldName, newName);
+              renderPeopleLists();
+              updateAllSelects();
+              refreshViews();
+              showSaveStatus();
+            } else {
+              alert("El nombre ya existe o no es válido.");
+            }
+          } else {
+            finishEdit();
+          }
+        });
+        
+        cancelBtn.addEventListener("click", () => {
+          input.value = oldName;
+          finishEdit();
+        });
+        
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            saveBtn.click();
+          } else if (e.key === "Escape") {
+            cancelBtn.click();
+          }
+        });
+      });
+    });
     
     developersList.querySelectorAll("[data-action='remove-developer']").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -307,6 +571,45 @@ function renderPeopleLists() {
         }
       });
     });
+  }
+}
+
+// Función para actualizar proyectos cuando se renombra un área, responsable o desarrollador
+function updateProjectsAfterRename(type, oldName, newName) {
+  let updated = false;
+  
+  projects.forEach(project => {
+    if (type === "area" && project.area === oldName) {
+      project.area = newName;
+      updated = true;
+    }
+    
+    if (type === "owner" && project.owner === oldName) {
+      project.owner = newName;
+      updated = true;
+    }
+    
+    if (type === "developer" && Array.isArray(project.developers)) {
+      const index = project.developers.indexOf(oldName);
+      if (index !== -1) {
+        project.developers[index] = newName;
+        updated = true;
+      }
+    }
+    
+    // Actualizar tareas cuando se renombra un desarrollador o responsable
+    if ((type === "developer" || type === "owner") && Array.isArray(project.tasks)) {
+      project.tasks.forEach(task => {
+        if (task.assignedTo === oldName) {
+          task.assignedTo = newName;
+          updated = true;
+        }
+      });
+    }
+  });
+  
+  if (updated) {
+    saveProjects(projects);
   }
 }
 
@@ -377,7 +680,8 @@ function updateAllSelects() {
   
   // Actualizar select de "Asignado a" en tareas (responsables + desarrolladores)
   if (taskAssignedToSelect) {
-    const currentValue = taskAssignedToSelect.value;
+    // Guardar valores seleccionados actuales (puede ser múltiple)
+    const selectedValues = Array.from(taskAssignedToSelect.selectedOptions).map(opt => opt.value);
     taskAssignedToSelect.innerHTML = '<option value="">Sin asignar</option>';
     const allPeople = getAllPeople();
     allPeople.forEach(person => {
@@ -386,8 +690,26 @@ function updateAllSelects() {
       option.textContent = person;
       taskAssignedToSelect.appendChild(option);
     });
-    if (allPeople.includes(currentValue)) {
-      taskAssignedToSelect.value = currentValue;
+    
+    // Restaurar selecciones si existen, o establecer desarrolladores por defecto
+    if (selectedValues.length > 0) {
+      selectedValues.forEach(value => {
+        const option = Array.from(taskAssignedToSelect.options).find(opt => opt.value === value);
+        if (option) {
+          option.selected = true;
+        }
+      });
+    } else if (currentProjectId && !currentTaskId) {
+      // Si no hay selecciones y estamos creando una nueva tarea, usar desarrolladores por defecto
+      const defaultDevelopers = getDefaultDevelopersForProject(currentProjectId);
+      if (defaultDevelopers.length > 0) {
+        defaultDevelopers.forEach(dev => {
+          const option = Array.from(taskAssignedToSelect.options).find(opt => opt.value === dev);
+          if (option) {
+            option.selected = true;
+          }
+        });
+      }
     }
   }
   
@@ -402,6 +724,7 @@ function handleSubmit(event) {
   updateAllSelects();
   refreshViews();
   resetForm();
+  showSaveStatus();
 }
 
 function handleFiltersChange() {
@@ -430,17 +753,22 @@ function refreshViews() {
   });
   renderBoard(board, document.getElementById("projectCardTemplate"));
   renderList(listBody);
+  if (timelineContainer && currentView === "timeline") {
+    renderTimeline(timelineContainer, timelineDateFilters);
+  }
   updateFiltersSummary(filtersSummary);
 }
 
 function handleStatusUpdate(projectId, status) {
   projects = updateProjectStatus(projects, projectId, status);
   refreshViews();
+  showSaveStatus();
 }
 
 function handleMoveProject(projectId, direction) {
   projects = moveProject(projects, projectId, direction);
   refreshViews();
+  showSaveStatus();
 }
 
 function handleDeleteProject(projectId) {
@@ -449,6 +777,61 @@ function handleDeleteProject(projectId) {
 
   projects = deleteProject(projects, projectId);
   refreshViews();
+  showSaveStatus();
+}
+
+// Funciones de actualización y estado de guardado
+function updateLastUpdateInfo() {
+  if (!lastUpdateTime) return;
+  
+  const lastUpdate = getLastUpdate();
+  if (lastUpdate) {
+    const now = new Date();
+    const diff = now - lastUpdate;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    let timeAgo;
+    if (days > 0) {
+      timeAgo = `hace ${days} día${days !== 1 ? "s" : ""}`;
+    } else if (hours > 0) {
+      timeAgo = `hace ${hours} hora${hours !== 1 ? "s" : ""}`;
+    } else if (minutes > 0) {
+      timeAgo = `hace ${minutes} minuto${minutes !== 1 ? "s" : ""}`;
+    } else {
+      timeAgo = "hace unos segundos";
+    }
+    
+    const formattedDate = lastUpdate.toLocaleString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    
+    lastUpdateTime.textContent = `${formattedDate} (${timeAgo})`;
+    lastUpdateTime.title = `Última actualización: ${lastUpdate.toLocaleString("es-ES")}`;
+  } else {
+    lastUpdateTime.textContent = "Nunca";
+  }
+}
+
+function showSaveStatus() {
+  if (!saveStatus) return;
+  
+  saveStatus.textContent = "✓ Guardado";
+  saveStatus.className = "metadata__status metadata__status--saved";
+  
+  setTimeout(() => {
+    if (saveStatus) {
+      saveStatus.textContent = "";
+      saveStatus.className = "metadata__status";
+    }
+  }, 3000);
+  
+  updateLastUpdateInfo();
 }
 
 function editProject(projectId) {
@@ -477,7 +860,24 @@ function editProject(projectId) {
   } else {
     formAreaSelect.selectedIndex = 0;
   }
-  document.getElementById("owner").value = project.owner;
+  // Asegurar que los selects estén actualizados antes de establecer valores
+  updateAllSelects();
+  
+  // Establecer el responsable
+  const ownerSelect = document.getElementById("owner");
+  if (ownerSelect && project.owner) {
+    // Verificar si el owner existe en las opciones
+    const ownerExists = Array.from(ownerSelect.options).some(opt => opt.value === project.owner);
+    if (ownerExists) {
+      ownerSelect.value = project.owner;
+    } else {
+      // Si no existe, agregarlo temporalmente
+      const option = new Option(project.owner, project.owner, true, true);
+      ownerSelect.appendChild(option);
+    }
+  } else if (ownerSelect) {
+    ownerSelect.value = "";
+  }
   
   // Seleccionar desarrolladores en el select múltiple
   const developersSelect = document.getElementById("developers");
@@ -518,15 +918,154 @@ function resetForm() {
 }
 
 function handleToggleView() {
-  currentView = currentView === "list" ? "board" : "list";
+  if (currentView === "timeline") {
+    currentView = "board";
+  } else {
+    currentView = currentView === "list" ? "board" : "list";
+  }
+  updateView();
+}
+
+function handleToggleTimeline() {
+  currentView = "timeline";
   updateView();
 }
 
 function updateView() {
   const showBoard = currentView === "board";
+  const showList = currentView === "list";
+  const showTimeline = currentView === "timeline";
+  
   board.style.display = showBoard ? "grid" : "none";
-  listView.classList.toggle("list--hidden", showBoard);
+  listView.style.display = showList ? "block" : "none";
+  if (timelineView) {
+    timelineView.style.display = showTimeline ? "block" : "none";
+  }
+  
   toggleViewButton.textContent = showBoard ? "Ver como lista" : "Ver como tablero";
+  if (toggleTimelineButton) {
+    toggleTimelineButton.textContent = showTimeline ? "Ver tablero" : "Ver línea de tiempo";
+  }
+  
+  // Renderizar la vista activa
+  if (showTimeline && timelineContainer) {
+    renderTimeline(timelineContainer, timelineDateFilters);
+  }
+}
+
+// Funciones de tema
+function initializeTheme() {
+  const savedTheme = localStorage.getItem("theme") || "light";
+  setTheme(savedTheme);
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("theme", theme);
+  
+  if (themeIcon) {
+    themeIcon.textContent = theme === "dark" ? "☀️" : "🌙";
+  }
+  
+  if (toggleThemeButton) {
+    toggleThemeButton.setAttribute("title", theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro");
+  }
+}
+
+function handleToggleTheme() {
+  const currentTheme = document.documentElement.getAttribute("data-theme") || "light";
+  const newTheme = currentTheme === "dark" ? "light" : "dark";
+  setTheme(newTheme);
+}
+
+// Funciones de filtros de timeline
+function initializeTimelineFilters() {
+  if (timelineFilterApply) {
+    timelineFilterApply.addEventListener("click", handleTimelineFilterApply);
+  }
+  
+  if (timelineFilterReset) {
+    timelineFilterReset.addEventListener("click", handleTimelineFilterReset);
+  }
+  
+  // Filtros rápidos
+  const quickFilters = document.querySelectorAll(".timeline__quick-filter");
+  quickFilters.forEach((button) => {
+    button.addEventListener("click", () => {
+      const period = button.dataset.period;
+      applyQuickFilter(period);
+    });
+  });
+}
+
+function handleTimelineFilterApply() {
+  const from = timelineDateFrom?.value || null;
+  const to = timelineDateTo?.value || null;
+  
+  timelineDateFilters = { from, to };
+  
+  if (timelineContainer && currentView === "timeline") {
+    renderTimeline(timelineContainer, timelineDateFilters);
+  }
+}
+
+function handleTimelineFilterReset() {
+  timelineDateFilters = { from: null, to: null };
+  
+  if (timelineDateFrom) timelineDateFrom.value = "";
+  if (timelineDateTo) timelineDateTo.value = "";
+  
+  if (timelineContainer && currentView === "timeline") {
+    renderTimeline(timelineContainer, timelineDateFilters);
+  }
+}
+
+function applyQuickFilter(period) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let from = null;
+  let to = null;
+  
+  switch (period) {
+    case "month":
+      from = new Date(today.getFullYear(), today.getMonth(), 1);
+      to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      break;
+    case "quarter":
+      const quarter = Math.floor(today.getMonth() / 3);
+      from = new Date(today.getFullYear(), quarter * 3, 1);
+      to = new Date(today.getFullYear(), (quarter + 1) * 3, 0);
+      break;
+    case "year":
+      from = new Date(today.getFullYear(), 0, 1);
+      to = new Date(today.getFullYear(), 11, 31);
+      break;
+    case "all":
+      from = null;
+      to = null;
+      break;
+  }
+  
+  if (from && timelineDateFrom) {
+    timelineDateFrom.value = from.toISOString().split("T")[0];
+  }
+  if (to && timelineDateTo) {
+    timelineDateTo.value = to.toISOString().split("T")[0];
+  }
+  if (period === "all") {
+    if (timelineDateFrom) timelineDateFrom.value = "";
+    if (timelineDateTo) timelineDateTo.value = "";
+  }
+  
+  timelineDateFilters = { 
+    from: from ? from.toISOString().split("T")[0] : null, 
+    to: to ? to.toISOString().split("T")[0] : null 
+  };
+  
+  if (timelineContainer && currentView === "timeline") {
+    renderTimeline(timelineContainer, timelineDateFilters);
+  }
 }
 
 function normalizePriority(value) {
@@ -596,6 +1135,7 @@ function handleImportFile(event) {
       synchronizeAreaOptions(formAreaSelect, filterAreaSelect, projects);
       refreshViews();
       resetForm();
+      showSaveStatus();
     } catch (error) {
       console.error("No se pudo importar el archivo", error);
       alert("Hubo un problema al importar el archivo JSON.");
@@ -663,6 +1203,25 @@ function viewProjectDetail(projectId) {
   }
 
   renderTasks();
+  
+  // Establecer los desarrolladores por defecto cuando se abre el modal (solo para nuevas tareas)
+  if (taskAssignedToSelect && currentProjectId && !currentTaskId) {
+    const defaultDevelopers = getDefaultDevelopersForProject(currentProjectId);
+    if (defaultDevelopers.length > 0) {
+      // Limpiar selecciones previas
+      Array.from(taskAssignedToSelect.options).forEach(option => {
+        option.selected = false;
+      });
+      // Seleccionar los desarrolladores por defecto
+      defaultDevelopers.forEach(dev => {
+        const option = Array.from(taskAssignedToSelect.options).find(opt => opt.value === dev);
+        if (option) {
+          option.selected = true;
+        }
+      });
+    }
+  }
+  
   projectDetailModal.classList.add("modal--visible");
   if (modalOverlay) {
     modalOverlay.classList.add("modal--visible");
@@ -741,6 +1300,7 @@ function renderTasks() {
       projects = updateTaskStatus(projects, currentProjectId, taskId, newStatus);
       renderTasks();
       refreshViews();
+      showSaveStatus();
     });
   });
 
@@ -763,10 +1323,26 @@ function handleTaskSubmit(event) {
   if (!currentProjectId) return;
 
   const formData = new FormData(taskForm);
+  // Obtener todos los desarrolladores seleccionados (select múltiple)
+  const selectedDevelopers = formData.getAll("taskAssignedTo").filter(d => d.trim() !== "");
+  
+  let assignedTo = "";
+  
+  if (selectedDevelopers.length > 0) {
+    // Si hay desarrolladores seleccionados, unirlos con comas
+    assignedTo = selectedDevelopers.join(", ");
+  } else {
+    // Si no hay asignación, usar los desarrolladores por defecto del proyecto
+    const defaultDevelopers = getDefaultDevelopersForProject(currentProjectId);
+    if (defaultDevelopers.length > 0) {
+      assignedTo = defaultDevelopers.join(", ");
+    }
+  }
+  
   const taskData = {
     title: formData.get("taskTitle"),
     description: formData.get("taskDescription"),
-    assignedTo: formData.get("taskAssignedTo"),
+    assignedTo: assignedTo,
     estimatedTime: formData.get("taskEstimatedTime"),
     status: formData.get("taskStatus"),
   };
@@ -782,6 +1358,7 @@ function handleTaskSubmit(event) {
   renderTasks();
   refreshViews();
   resetTaskForm();
+  showSaveStatus();
 }
 
 function editTask(taskId) {
@@ -794,7 +1371,27 @@ function editTask(taskId) {
   currentTaskId = taskId;
   document.getElementById("taskTitle").value = task.title;
   document.getElementById("taskDescription").value = task.description || "";
-  document.getElementById("taskAssignedTo").value = task.assignedTo || "";
+  
+  // Manejar asignación (puede ser múltiple separado por comas)
+  const taskAssignedTo = document.getElementById("taskAssignedTo");
+  if (taskAssignedTo) {
+    // Limpiar selecciones
+    Array.from(taskAssignedTo.options).forEach(option => {
+      option.selected = false;
+    });
+    
+    // Si la tarea tiene asignación, seleccionar los desarrolladores
+    if (task.assignedTo) {
+      const assignedDevelopers = task.assignedTo.split(",").map(d => d.trim()).filter(Boolean);
+      assignedDevelopers.forEach(dev => {
+        const option = Array.from(taskAssignedTo.options).find(opt => opt.value === dev);
+        if (option) {
+          option.selected = true;
+        }
+      });
+    }
+  }
+  
   document.getElementById("taskEstimatedTime").value = task.estimatedTime || "";
   document.getElementById("taskStatus").value = task.status;
 
@@ -816,11 +1413,51 @@ function deleteTaskHandler(taskId) {
   projects = deleteTask(projects, currentProjectId, taskId);
   renderTasks();
   refreshViews();
+  showSaveStatus();
+}
+
+// Función para obtener los desarrolladores por defecto para un proyecto
+function getDefaultDevelopersForProject(projectId) {
+  if (!projectId) return [];
+  
+  const project = projects.find((p) => p.id === projectId);
+  if (!project) return [];
+  
+  // Si el proyecto tiene desarrolladores, usar todos
+  if (project.developers && project.developers.length > 0) {
+    return project.developers;
+  }
+  
+  // Si no tiene desarrolladores, usar el primer desarrollador de la lista
+  const developers = getDevelopers();
+  if (developers && developers.length > 0) {
+    return [developers[0]];
+  }
+  
+  return [];
 }
 
 function resetTaskForm() {
   if (taskForm) {
     taskForm.reset();
+    
+    // Establecer los desarrolladores por defecto cuando se resetea el formulario
+    if (currentProjectId && taskAssignedToSelect) {
+      const defaultDevelopers = getDefaultDevelopersForProject(currentProjectId);
+      if (defaultDevelopers.length > 0) {
+        // Limpiar selecciones previas
+        Array.from(taskAssignedToSelect.options).forEach(option => {
+          option.selected = false;
+        });
+        // Seleccionar los desarrolladores por defecto
+        defaultDevelopers.forEach(dev => {
+          const option = Array.from(taskAssignedToSelect.options).find(opt => opt.value === dev);
+          if (option) {
+            option.selected = true;
+          }
+        });
+      }
+    }
   }
   currentTaskId = null;
   if (taskFormTitle) {

@@ -158,3 +158,60 @@ export function getAreas() {
   return loadPeople().areas;
 }
 
+export function updateArea(oldName, newName) {
+  const people = loadPeople();
+  const index = people.areas.indexOf(oldName);
+  
+  if (index === -1) {
+    return false;
+  }
+  
+  const trimmedNewName = newName.trim();
+  if (!trimmedNewName || people.areas.includes(trimmedNewName)) {
+    return false;
+  }
+  
+  people.areas[index] = trimmedNewName;
+  people.areas.sort();
+  savePeople(people);
+  return true;
+}
+
+export function updateOwner(oldName, newName) {
+  const people = loadPeople();
+  const index = people.owners.indexOf(oldName);
+  
+  if (index === -1) {
+    return false;
+  }
+  
+  const trimmedNewName = newName.trim();
+  if (!trimmedNewName || people.owners.includes(trimmedNewName)) {
+    return false;
+  }
+  
+  people.owners[index] = trimmedNewName;
+  people.owners.sort();
+  savePeople(people);
+  return true;
+}
+
+export function updateDeveloper(oldName, newName) {
+  const people = loadPeople();
+  const index = people.developers.indexOf(oldName);
+  
+  if (index === -1) {
+    return false;
+  }
+  
+  const trimmedNewName = newName.trim();
+  if (!trimmedNewName || people.developers.includes(trimmedNewName)) {
+    return false;
+  }
+  
+  people.developers[index] = trimmedNewName;
+  people.developers.sort();
+  savePeople(people);
+  return true;
+}
+

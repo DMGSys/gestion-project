@@ -35,11 +35,13 @@ export function createProject(formData, existingProjects) {
   const id = formData.get("projectId") || crypto.randomUUID();
   // Para select múltiple, usar getAll en lugar de get
   const developers = formData.getAll("developers");
+  const ownerValue = formData.get("owner")?.trim() || "";
+  
   const project = {
     id,
     name: formData.get("name").trim(),
     area: formData.get("area"),
-    owner: formData.get("owner")?.trim() || "",
+    owner: ownerValue,
     developers: formatDevelopers(developers),
     estimate: formData.get("estimate")?.trim() || "",
     points: parsePoints(formData.get("points")),
@@ -61,7 +63,12 @@ export function createProject(formData, existingProjects) {
     existingProjects.push(project);
   }
 
-  saveProjects(existingProjects);
+  // Verificar que los datos se guarden correctamente
+  const saved = saveProjects(existingProjects);
+  if (!saved) {
+    console.error("Error al guardar proyectos");
+  }
+  
   return existingProjects;
 }
 
